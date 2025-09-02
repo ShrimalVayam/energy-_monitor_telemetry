@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  telemetry_postgres:
+    image: postgres:15
+    restart: always
+    ports:
+      - '5434:${DB_PORT}' # External 5434 → container's DB_PORT
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - telemetry_pgdata:/var/lib/postgresql/data
+    networks:
+      - telemetry_net
+
+  telemetry_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${PORT}:${PORT}' # Expose telemetry service
+    env_file:
+      - .env
+    depends_on:
+      - telemetry_postgres
+    networks:
+      - telemetry_net
+    command: >
+      sh -c "
+      npx prisma generate &&
+      until npx prisma migrate dev --name init; do sleep 2; done &&
+      pnpm dev
+      "
+
+volumes:
+  telemetry_pgdata:
+
+networks:
+  telemetry_net:
+
